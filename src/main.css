@@ -1,0 +1,27 @@
+/* `height: 100%` on any element only resolves to real pixels if *every* ancestor back to the
+   real viewport/host container has a definite height — unlike width, height defaults to "auto"
+   (size to content) at every level, not "fill the parent." html/body have no explicit height by
+   default, and #root (outside React's control, so it can't be styled via inline styles) needs a
+   rule too — otherwise Widget.tsx's own `height: 100%` has nothing real to resolve against and
+   silently falls back to content sizing. This establishes that chain from the real
+   viewport/host container down to #root. */
+html,
+body {
+    margin: 0;
+    height: 100%;
+    background-color: transparent;
+}
+
+#root {
+    height: 100%;
+    background-color: transparent;
+}
+
+.radix-themes:where([data-is-root-theme='true']) {
+    height: 100%;
+    min-height: 0;
+
+    @supports(min-height: 100dvh) {
+        min-height: 0;
+    }
+}
