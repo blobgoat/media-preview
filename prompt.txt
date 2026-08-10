@@ -1,0 +1,609 @@
+# Palantir PNG Icon Display Widget — Implementation Specification
+
+## Objective
+
+Implement a small Palantir Foundry custom widget in the existing `media-preview` repository.
+
+The widget accepts a single string parameter:
+
+```tsiconName: string```
+
+It uses that value to look up a PNG icon in a **new repository-local icon registry**, then renders the matching PNG centered inside a flex container.
+
+There are currently **no icon PNGs and no icon registry in the repository**.
+
+This task is therefore primarily about creating the infrastructure/wiring so PNG icons can be added later without changing the widget rendering logic.
+
+The intended future flow is:
+
+```textPalantir iconName parameter          ↓new repository-local icon registry          ↓PNG asset path          ↓<img>          ↓centered flex container```
+
+Do **not** use `@radix-ui/react-icons` or another third-party icon library as the icon source.
+
+The icons for this widget will eventually be repository-owned PNG files supplied separately after this implementation.
+
+---
+
+# 1. Inspect the Existing Repository First
+
+Before modifying code, inspect the current `media-preview` repository and preserve its existing Palantir widget architecture.
+
+At minimum, inspect:
+
+* `src/Widget.tsx`* `src/main.config.ts`* `src/main.css`* `src/context.ts`* `src/client.ts`* `src/components/ExampleCard.tsx`* `src/__tests__/Widget.test.tsx`* `package.json`* TypeScript configuration* Vite configuration* Vitest/test configuration
+
+Use the repository's existing React, TypeScript, Vite, Vitest, and `@osdk/widget.client` setup.
+
+Do not replace the existing scaffold or introduce a new application architecture.
+
+---
+
+# 2. Important Starting-State Requirement
+
+The repository currently contains:
+
+* no icon PNG collection,* no icon registry,* no icon-name mapping,* no established repository icon naming convention.
+
+Do not search for or assume that an icon registry already exists.
+
+Instead, create the minimal infrastructure needed to support one.
+
+The implementation must work correctly even while the registry contains **zero icons**.
+
+---
+
+# 3. Widget Parameter
+
+Add a widget parameter named:
+
+```tsiconName```
+
+with the TypeScript/runtime meaning:
+
+```tsstring```
+
+Wire it through the existing Palantir widget configuration system in `src/main.config.ts` using the same conventions already used by the repository.
+
+Do not add:
+
+* icon size parameters,* color parameters,* alignment parameters,* file-upload parameters,* icon picker parameters,* URL parameters,* fallback-icon parameters.
+
+This task has exactly one configurable widget value:
+
+```texticonName```
+
+---
+
+# 4. No Default Icon
+
+`iconName` should not have a semantic default icon.
+
+If no value is supplied, the widget should simply display an empty flex container.
+
+The following values should all result in no icon being displayed:
+
+```tsundefinednull""```
+
+Handle whatever subset of those values can actually reach the widget through the existing Palantir parameter API.
+
+Do not automatically display:
+
+* a question mark,* an error icon,* an Add icon,* a placeholder icon,* a Radix icon,* or another arbitrary fallback image.
+
+---
+
+# 5. Create the PNG Asset Directory
+
+Create a clear repository-owned location for future PNG icon files.
+
+Preferred structure:
+
+```textsrc/  assets/    icons/      index.ts```
+
+There do not need to be any PNG files in the directory as part of this task.
+
+Do not generate fake production PNG icons merely to populate the directory.
+
+The user will add the actual PNG icon files later.
+
+---
+
+# 6. Create the Icon Registry
+
+Create a registry in:
+
+```textsrc/assets/icons/index.ts```
+
+The registry should map a string icon name to the imported PNG URL/path that React/Vite can use as an `<img src>` value.
+
+Conceptually, the eventual structure should support entries like:
+
+```tsimport searchIcon from "./search.png";import calendarIcon from "./calendar.png";
+
+export const iconAssets = {    search: searchIcon,    calendar: calendarIcon,};```
+
+However, because the PNG files do not exist yet, the production registry created by this task should initially be empty.
+
+For example:
+
+```tsexport const iconAssets: Record<string, string> = {};```
+
+An equivalent strongly typed implementation is acceptable.
+
+The important requirement is that future PNG icons can be added by:
+
+1. placing the `.png` file in `src/assets/icons/`,2. importing it in `src/assets/icons/index.ts`,3. adding one name-to-PNG entry to `iconAssets`.
+
+Adding a new PNG should **not require editing `Widget.tsx` or the icon display component**.
+
+---
+
+# 7. PNGs Must Be the Intended Asset Type
+
+This registry is specifically infrastructure for PNG icon assets.
+
+Do not implement the registry around:
+
+* React icon components,* SVG component libraries,* Radix icons,* Base64 strings,* remote URLs,* CSS icon fonts.
+
+The future production assets will be local `.png` files.
+
+Use the normal Vite static asset import mechanism already supported by the repository.
+
+---
+
+# 8. Do Not Automatically Scan the Filesystem
+
+Do not add filesystem scanning, runtime directory discovery, or complicated dynamic loading.
+
+A simple explicit registry is preferred.
+
+For example, once actual assets exist:
+
+```tsimport search from "./search.png";
+
+export const iconAssets = {    search,};```
+
+is preferable to introducing unnecessary dynamic import infrastructure.
+
+The registry should remain easy for a developer to read and edit manually.
+
+---
+
+# 9. Icon Lookup
+
+Create straightforward lookup behavior.
+
+Conceptually:
+
+```tsconst iconSrc = iconAssets[iconName];```
+
+The implementation must safely handle names that do not exist.
+
+For example:
+
+```tsfunction getIconAsset(iconName?: string): string | undefined {    if (!iconName) {        return undefined;    }
+
+    return iconAssets[iconName];}```
+
+The exact helper structure may vary, but the observable behavior must match this specification.
+
+---
+
+# 10. Invalid Icon Names
+
+If the widget receives:
+
+```tsiconName = "does-not-exist"```
+
+and that key is absent from `iconAssets`:
+
+* do not throw,* do not crash,* do not show a broken `<img>`,* do not show browser missing-image UI,* do not substitute another icon.
+
+Simply render no `<img>` element.
+
+The surrounding flex container should remain rendered.
+
+---
+
+# 11. Widget Rendering
+
+The widget should render one main flex container.
+
+Conceptually:
+
+```tsx<div className="icon-widget">    {iconSrc ? (        <img src={iconSrc} aria-hidden="true" />    ) : null}</div>```
+
+Adapt the implementation to the repository's existing structure.
+
+Do not copy this code blindly if the existing scaffold requires a slightly different component arrangement.
+
+---
+
+# 12. Flex Container Contract
+
+The main widget container must:
+
+```cssdisplay: flex;align-items: center;justify-content: center;width: 100%;height: 100%;box-sizing: border-box;overflow: hidden;```
+
+This is the required layout contract.
+
+The purpose is to keep the icon centered horizontally and vertically inside whatever dimensions the Palantir widget host provides.
+
+Equivalent CSS that provides exactly the same behavior is acceptable.
+
+---
+
+# 13. PNG Rendering Contract
+
+When a valid registry entry exists, render it using an HTML `<img>` element.
+
+The image should remain contained within the available widget area rather than forcing the widget to overflow.
+
+Use:
+
+```cssmax-width: 100%;max-height: 100%;object-fit: contain;```
+
+or equivalent behavior.
+
+Do not stretch the PNG disproportionately.
+
+Do not crop the PNG.
+
+Do not use the PNG as a CSS background image.
+
+The rendered asset should be an actual `<img>` element.
+
+---
+
+# 14. No Fixed Widget Dimensions
+
+Do not set a fixed width or height for the widget container.
+
+Avoid behavior such as:
+
+```csswidth: 100px;height: 100px;```
+
+The outer widget should inherit the available dimensions supplied by the host.
+
+The PNG should stay centered as those dimensions change.
+
+---
+
+# 15. No Production Placeholder PNG
+
+Do not add a fake icon solely so the production registry has an entry.
+
+The production registry may correctly ship as:
+
+```ts{}```
+
+until the actual PNG assets are supplied later.
+
+This empty-registry state is intentional.
+
+---
+
+# 16. Testing an Empty Production Registry
+
+Because there are no real PNG assets yet, tests should **not require adding a production PNG file**.
+
+Tests that need to verify successful icon rendering should mock the icon registry or otherwise provide a test-only registry value using the repository's existing Vitest capabilities.
+
+For example, a test may mock:
+
+```tssrc/assets/icons/index.ts```
+
+so that the registry behaves conceptually like:
+
+```ts{    search: "/mock/search.png"}```
+
+The exact mocking implementation should follow the existing Vitest setup.
+
+Do not add fake production icons simply to make the test pass.
+
+---
+
+# 17. Required Test — Valid Registered Icon
+
+Using a mocked registry containing something equivalent to:
+
+```ts{    search: "/mock/search.png"}```
+
+render the widget with:
+
+```tsiconName = "search"```
+
+Verify that:
+
+1. an `<img>` element is rendered,2. its `src` corresponds to the registered asset,3. only the requested asset is displayed.
+
+---
+
+# 18. Required Test — Registry Lookup Changes With Input
+
+Using a mocked registry equivalent to:
+
+```ts{    search: "/mock/search.png",    calendar: "/mock/calendar.png"}```
+
+verify that different `iconName` values resolve to the corresponding PNG source.
+
+For example:
+
+```textsearch → /mock/search.pngcalendar → /mock/calendar.png```
+
+This confirms that the widget is actually driven by `iconName` rather than containing a hardcoded image.
+
+---
+
+# 19. Required Test — Empty iconName
+
+Render the widget with an empty `iconName`.
+
+Verify:
+
+* the main widget container renders,* no `<img>` element renders,* no exception occurs.
+
+---
+
+# 20. Required Test — Invalid iconName
+
+Using a registry that does not contain:
+
+```textdoes-not-exist```
+
+render:
+
+```tsiconName = "does-not-exist"```
+
+Verify:
+
+* the main container renders,* no `<img>` element renders,* no fallback image renders,* no exception occurs.
+
+---
+
+# 21. Required Test — Real Empty Production Registry
+
+Include coverage confirming that the actual initially empty production registry is a valid state.
+
+The widget must be able to run with:
+
+```tsexport const iconAssets = {};```
+
+without throwing.
+
+This is important because that is the expected repository state immediately after this task is completed and before the user adds PNGs.
+
+---
+
+# 22. Required Test — Flex Layout
+
+Give the main widget container a stable testable selector.
+
+For example:
+
+```tsxdata-testid="icon-widget"```
+
+or another explicit DOM marker consistent with the existing test suite.
+
+Verify that the main container exposes the required layout contract:
+
+* `display: flex`* horizontal centering* vertical centering* full width* full height* hidden overflow
+
+The test should inspect DOM/style/class behavior rather than using screenshot comparison.
+
+---
+
+# 23. Required Test — Image Containment
+
+When a mocked valid icon is rendered, verify that the rendered image uses the CSS/class contract responsible for:
+
+```textmax-width: 100%max-height: 100%object-fit: contain```
+
+This ensures future PNGs cannot accidentally create widget overflow simply because their source dimensions are large.
+
+---
+
+# 24. Accessibility
+
+Treat these icons as decorative for this implementation.
+
+The rendered `<img>` should therefore not use `iconName` as visible or screen-reader content.
+
+Use an appropriate decorative-image pattern, such as:
+
+```tsxalt=""```
+
+and/or the equivalent accessibility behavior appropriate for an `<img>`.
+
+Do not expose an internal identifier such as:
+
+```textemployee_search_16```
+
+as meaningful alternate text.
+
+Do not add an accessibility-label parameter as part of this task.
+
+---
+
+# 25. Remove Unneeded Scaffold UI From the Final Widget
+
+The repository currently contains example/scaffold presentation code such as `ExampleCard.tsx`.
+
+If the existing `Widget.tsx` currently renders scaffold/example content instead of the requested widget, replace that rendered example UI with the icon display behavior.
+
+Do not leave unrelated example content visible alongside the icon.
+
+However, do not delete unrelated scaffold files unless they are genuinely no longer referenced and removing them is safe.
+
+The important observable requirement is that the resulting widget UI contains only the icon display area.
+
+---
+
+# 26. Do Not Use Radix Icons
+
+Although `package.json` contains icon-related third-party dependencies such as:
+
+```text@radix-ui/react-icons```
+
+they are not the source for this widget.
+
+Do not build the widget using those icons.
+
+Do not create a translation such as:
+
+```ts{    search: MagnifyingGlassIcon,    calendar: CalendarIcon}```
+
+The registry introduced by this task is specifically for the PNG files the user will add later.
+
+---
+
+# 27. No Runtime Network Requests
+
+All future icon assets are local repository assets.
+
+The widget must not:
+
+* fetch PNGs from an API,* construct remote URLs,* call a server based on `iconName`,* download an image at runtime.
+
+Resolving an icon must remain a synchronous local lookup.
+
+---
+
+# 28. No Additional Interaction
+
+Do not add:
+
+* click handling,* hover handling,* selection handling,* tooltips,* buttons,* drag behavior,* keyboard interactions,* animations.
+
+The widget is purely presentational.
+
+---
+
+# 29. No Additional Visual UI
+
+Do not add:
+
+* a visible card,* visible border,* icon-name label,* title,* error text,* loading indicator,* placeholder graphic,* background decoration,* empty-state message.
+
+The desired rendered structure is essentially:
+
+```textwidget bounds└── centered flex container    └── optional PNG image```
+
+When no PNG resolves, only the container remains.
+
+---
+
+# 30. Expected Repository Architecture
+
+A reasonable final structure is:
+
+```textsrc/  assets/    icons/      index.ts  components/    IconDisplay.tsx  Widget.tsx  main.config.ts  main.css```
+
+The dedicated `IconDisplay.tsx` component is optional if the implementation remains clearer inside `Widget.tsx`.
+
+Do not add layers beyond what is necessary to maintain this simple separation:
+
+```textwidget parameter    ↓registry lookup    ↓PNG rendering```
+
+---
+
+# 31. Future PNG Addition Workflow
+
+The implementation must make the following future operation possible without changing the widget component.
+
+Suppose the user later adds:
+
+```textsrc/assets/icons/search.pngsrc/assets/icons/calendar.pngsrc/assets/icons/settings.png```
+
+They should only need to update the registry approximately like:
+
+```tsimport search from "./search.png";import calendar from "./calendar.png";import settings from "./settings.png";
+
+export const iconAssets = {    search,    calendar,    settings,};```
+
+After that:
+
+```texticonName = "search"```
+
+should render `search.png`.
+
+```texticonName = "calendar"```
+
+should render `calendar.png`.
+
+```texticonName = "settings"```
+
+should render `settings.png`.
+
+No change to the lookup/rendering component should be necessary.
+
+This future workflow is one of the primary acceptance criteria for the architecture.
+
+---
+
+# 32. Scope Restrictions
+
+Do not implement any of the following:
+
+* actual production icon PNGs,* generated placeholder PNGs,* Radix icons,* SVG icon infrastructure,* icon picker UI,* dropdown UI,* search UI,* multiple simultaneous icons,* icon categories,* icon filtering,* configurable icon size,* configurable icon color,* configurable alignment,* configurable padding,* configurable background,* configurable border,* configurable shadow,* hover effects,* pressed effects,* click events,* animation,* remote asset loading,* runtime filesystem scanning.
+
+This task is strictly:
+
+```textcreate PNG icon registry wiring+accept iconName+lookup PNG+display PNG centered in flex container```
+
+---
+
+# 33. Regression Requirements
+
+Do not make unnecessary changes to:
+
+* Palantir client initialization,* widget context infrastructure,* unrelated dependencies,* Vite configuration,* TypeScript configuration,* test configuration,* package configuration.
+
+Only alter these systems if a change is genuinely necessary for this task.
+
+Do not remove dependencies merely because this widget does not use them.
+
+Existing repository tests that remain applicable must continue to pass.
+
+---
+
+# 34. Definition of Done
+
+The implementation is complete when all of the following are true:
+
+1. `iconName` exists as the widget's string input parameter.2. A new repository-owned PNG icon directory exists.3. A new repository-owned icon registry exists.4. The production icon registry may initially contain zero entries.5. No actual production PNG icon needs to be added.6. `iconName` is used as the registry lookup key.7. A matching registry value renders as an `<img>`.8. An unknown icon name renders no `<img>`.9. An empty icon name renders no `<img>`.10. Missing or invalid values do not crash the widget.11. There is no default or fallback icon.12. The widget has a flex container.13. The flex container centers content horizontally.14. The flex container centers content vertically.15. The flex container fills the available width.16. The flex container fills the available height.17. The flex container prevents icon-driven overflow.18. PNGs preserve their aspect ratio.19. PNGs remain contained within the widget's available dimensions.20. No Radix or third-party icon is used as the production icon source.21. No runtime network request is required to obtain an icon.22. Tests can verify valid-icon behavior using mocked registry entries.23. Tests cover the actual empty production-registry state.24. Tests cover an invalid icon name.25. Tests cover an empty icon name.26. Tests cover different icon names resolving to different assets.27. Tests verify the flex layout contract.28. Tests verify image containment behavior.29. Future PNGs can be added by editing only the icon directory/registry.30. Existing applicable tests pass.31. TypeScript/type checking passes.32. The production build passes.33. Linting passes if linting is configured in the repository.
+
+---
+
+# 35. Final Intended Behavior
+
+Immediately after this task, the production state may be:
+
+```tsexport const iconAssets: Record<string, string> = {};```
+
+Therefore:
+
+```texticonName = "search"```
+
+currently renders nothing because `search.png` has not been supplied yet.
+
+That is correct.
+
+Later, after the user adds:
+
+```textsrc/assets/icons/search.png```
+
+and updates the registry:
+
+```tsimport search from "./search.png";
+
+export const iconAssets = {    search,};```
+
+the exact same widget should automatically behave as:
+
+```texticonName = "search"        ↓iconAssets["search"]        ↓search.png        ↓<img src={search}>        ↓centered flex container```
+
+The widget code itself should not need to change.
+
+That separation between **icon infrastructure** and the **future PNG collection** is the central architectural requirement of this task.

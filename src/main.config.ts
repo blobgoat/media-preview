@@ -12,31 +12,17 @@ export default defineConfig({
   id: "mediaPreview",
   name: "Media Preview",
   description:
-    "TODO: describe what this widget does and the parameters an author configures in Workshop.",
+    "Displays a single icon, looked up by name from the repository's PNG icon registry, centered in a flex container that fills the widget.",
   type: "workshop",
   parameters: {
     // --- Input parameters ---------------------------------------------------
-    // Example: replace with your widget's real inputs. Workshop authors configure these as
-    // fixed values or bind them to Ontology object properties / other widgets' outputs.
-    exampleTextInput: {
-      displayName: "Example text input — replace with a real parameter",
-      type: "string",
-    },
-
-    // --- Output / bridge parameters ------------------------------------------
-    // Example: a parameter this widget writes to, so Workshop authors can wire other
-    // widgets/logic off the interactions happening inside this one.
-    lastInteraction: {
-      displayName: "Last interaction (example output parameter)",
+    // The only configurable value for this widget: the key to look up in the repository's icon
+    // registry (src/assets/icons/index.ts). See prompt.txt — this widget intentionally has no
+    // size/color/alignment parameters.
+    iconName: {
+      displayName: "Icon name",
       type: "string",
     },
   },
-  events: {
-    // Example: emitting this event updates the parameters listed in parameterUpdateIds. See
-    // Widget.tsx's handleExampleClick for how emitEvent is called.
-    exampleInteraction: {
-      displayName: "Example interaction",
-      parameterUpdateIds: ["lastInteraction"],
-    },
-  },
+  events: {},
 });

@@ -8,7 +8,7 @@ automatically generates a `widgets.config.json` manifest during `npm run build`.
 
 ## Media Preview
 
-TODO: describe what this widget does and the parameters an author configures in Workshop.
+Displays a single icon, looked up by name from the repository-owned PNG icon registry in `src/assets/icons/index.ts`, centered in a flex container that fills the widget. Configure the `iconName` parameter in Workshop with the key of a registered icon. The registry ships empty — add `.png` files under `src/assets/icons/` and register them in `src/assets/icons/index.ts` to make them selectable; no widget code changes are needed when adding icons.
 
 The widget's Workshop-facing contract (parameters, events) lives in `src/main.config.ts` via
 `defineConfig({...})`. Everything else is ordinary React — `src/Widget.tsx` is the root
@@ -139,8 +139,9 @@ src/
   main.tsx          # Entry point: OSDK client + FoundryWidget + OsdkProvider wiring
   client.ts         # OSDK client construction
   context.ts        # Typed useWidgetContext() hook bound to MainConfig
-  Widget.tsx        # Root component — reads parameters, emits events, renders UI
-  components/       # Presentational pieces split out of Widget.tsx
+  Widget.tsx        # Root component — reads the iconName parameter, renders IconDisplay
+  components/       # Presentational pieces split out of Widget.tsx (e.g. IconDisplay.tsx)
+  assets/icons/      # Repository-owned PNG icon registry (index.ts) — empty until icons are added
   main.css          # Global styles (html/body/#root height chain, focus rings, etc.)
   __tests__/        # Vitest + Testing Library specs
 scripts/
