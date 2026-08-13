@@ -158,7 +158,6 @@ export const IconDisplay: React.FC<IconDisplayProps> = ({
   shadowEnabled,
   hoverAnimationEnabled,
   hoverAnimationPaddingPercent,
-  pressAnimationEnabled,
   onWidgetClick,
 }) => {
   const iconSrc = getIconAsset(iconName);
@@ -175,7 +174,7 @@ export const IconDisplay: React.FC<IconDisplayProps> = ({
   // A press in progress always wins over a simultaneous hover state (e.g. the mouse is already
   // hovering when the button goes down) — same "active state wins" convention as CSS's own
   // `:active` outranking `:hover` when both would otherwise apply.
-  const isPressAnimating = Boolean(pressAnimationEnabled) && isPressed;
+  const isPressAnimating = isHoverAnimating && isPressed;
 
   const baseShadow = shadowEnabled ? "0 2px 8px rgba(0, 0, 0, 0.15)" : "none";
   const hoverShadow = shadowEnabled ? "0 6px 16px rgba(0, 0, 0, 0.22)" : "none";
@@ -211,42 +210,42 @@ export const IconDisplay: React.FC<IconDisplayProps> = ({
   const iconElement = iconSrc
     ? iconColor
       ? // Recolored: paint `iconColor` through the PNG's own alpha channel as a mask, rather
-        // than rendering the PNG's original pixels. Only makes sense for single-color
-        // silhouette PNGs with transparency (true for this repo's icon set) — a multi-color
-        // source PNG would just become a solid color block.
-        (
-          <div
-            data-testid="icon-image"
-            data-icon-recolored="true"
-            aria-hidden="true"
-            style={{
-              width: "100%",
-              height: "100%",
-              backgroundColor: iconColor,
-              WebkitMaskImage: `url(${iconSrc})`,
-              maskImage: `url(${iconSrc})`,
-              WebkitMaskRepeat: "no-repeat",
-              maskRepeat: "no-repeat",
-              WebkitMaskPosition: "center",
-              maskPosition: "center",
-              WebkitMaskSize: "contain",
-              maskSize: "contain",
-            }}
-          />
-        )
+      // than rendering the PNG's original pixels. Only makes sense for single-color
+      // silhouette PNGs with transparency (true for this repo's icon set) — a multi-color
+      // source PNG would just become a solid color block.
+      (
+        <div
+          data-testid="icon-image"
+          data-icon-recolored="true"
+          aria-hidden="true"
+          style={{
+            width: "100%",
+            height: "100%",
+            backgroundColor: iconColor,
+            WebkitMaskImage: `url(${iconSrc})`,
+            maskImage: `url(${iconSrc})`,
+            WebkitMaskRepeat: "no-repeat",
+            maskRepeat: "no-repeat",
+            WebkitMaskPosition: "center",
+            maskPosition: "center",
+            WebkitMaskSize: "contain",
+            maskSize: "contain",
+          }}
+        />
+      )
       : (
-          <img
-            data-testid="icon-image"
-            src={iconSrc}
-            alt=""
-            aria-hidden="true"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-            }}
-          />
-        )
+        <img
+          data-testid="icon-image"
+          src={iconSrc}
+          alt=""
+          aria-hidden="true"
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+          }}
+        />
+      )
     : null;
 
   const hasBorder = Boolean(shapeBorderColor);
@@ -285,6 +284,10 @@ export const IconDisplay: React.FC<IconDisplayProps> = ({
     color: "#8b8d98",
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   };
+  const wrapperStyle = {
+    filter: "drop-shadow(0px 8px 6px rgba(0, 0, 0, 0.3))",
+    display: "inline-block", // Keeps parent exact size of the child
+  };
 
   return (
     <div
@@ -299,7 +302,7 @@ export const IconDisplay: React.FC<IconDisplayProps> = ({
         height: "100%",
         boxSizing: "border-box",
         overflow: "hidden",
-        cursor: onWidgetClick ? "pointer" : undefined,
+        cursor: (onWidgetClick && hoverAnimationEnabled) ? "pointer" : undefined,
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
@@ -307,120 +310,130 @@ export const IconDisplay: React.FC<IconDisplayProps> = ({
         // Releasing the mouse button outside the widget (e.g. pressed, then dragged away before
         // letting go) shouldn't leave the widget stuck looking pressed forever.
         setIsPressed(false);
+
       }}
       onMouseDown={() => setIsPressed(true)}
       onMouseUp={() => setIsPressed(false)}
       onClick={onWidgetClick}
-    >
-      <div
-        data-testid="icon-widget-content"
-        style={{
-          position: "absolute",
-          top: `${hoverPaddingPercent}%`,
-          right: `${hoverPaddingPercent}%`,
-          bottom: `${hoverPaddingPercent}%`,
-          left: `${hoverPaddingPercent}%`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: backgroundColor || "transparent",
-          transform: currentScale,
-          transformOrigin: "center",
-          transition:
-            hoverAnimationEnabled || pressAnimationEnabled
-              ? `transform 150ms ease, ${usesClipPathShape ? "filter" : "box-shadow"} 150ms ease`
-              : undefined,
-          ...contentShadowStyle,
-          // Clip this box — the one carrying the background color, the shadow, and the
-          // hover/press scale — to the same shape as the border/fill drawn behind the icon, so
-          // the click-down/hover affordance itself reads as a circle or triangle instead of
-          // staying a rectangle around a circular/triangular icon. `overflow: hidden` is needed
-          // for the circle case specifically: `borderRadius` alone rounds this box's own corners
-          // but doesn't clip its children, while `clipPath` (the triangle case) clips regardless
-          // — including it for both keeps the two cases consistent. "rectangle", and no shape set
-          // at all, are both no-ops here (SHAPE_CLIP_STYLES.rectangle === {}), leaving this an
-          // unclipped rectangle exactly as before this feature existed.
-          overflow: shapeKey ? "hidden" : undefined,
-          ...(shapeKey ? SHAPE_CLIP_STYLES[shapeKey] : {}),
-        }}
-      >
-        {iconElement ? (
-          shapeKey ? (
-            <div
-              data-testid="icon-shape"
-              data-shape={shapeKey}
-              style={{ position: "relative", width: "100%", height: "100%" }}
-            >
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onWidgetClick?.();
+        }
+      }}
+      role={onWidgetClick ? "button" : undefined}
+      tabIndex={onWidgetClick ? 0 : undefined}
+    ><div style={wrapperStyle}>
+        <div
+          data-testid="icon-widget-content"
+          style={{
+            position: "absolute",
+            top: `${hoverPaddingPercent}%`,
+            right: `${hoverPaddingPercent}%`,
+            bottom: `${hoverPaddingPercent}%`,
+            left: `${hoverPaddingPercent}%`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: backgroundColor || "transparent",
+            transform: currentScale,
+            transformOrigin: "center",
+            transition:
+              hoverAnimationEnabled
+                ? `transform 150ms ease, ${usesClipPathShape ? "filter" : "box-shadow"} 150ms ease`
+                : undefined,
+            ...contentShadowStyle,
+            // Clip this box — the one carrying the background color, the shadow, and the
+            // hover/press scale — to the same shape as the border/fill drawn behind the icon, so
+            // the click-down/hover affordance itself reads as a circle or triangle instead of
+            // staying a rectangle around a circular/triangular icon. `overflow: hidden` is needed
+            // for the circle case specifically: `borderRadius` alone rounds this box's own corners
+            // but doesn't clip its children, while `clipPath` (the triangle case) clips regardless
+            // — including it for both keeps the two cases consistent. "rectangle", and no shape set
+            // at all, are both no-ops here (SHAPE_CLIP_STYLES.rectangle === {}), leaving this an
+            // unclipped rectangle exactly as before this feature existed.
+            overflow: shapeKey ? "hidden" : undefined,
+            ...(shapeKey ? SHAPE_CLIP_STYLES[shapeKey] : {}),
+          }}
+        >
+          {iconElement ? (
+            shapeKey ? (
               <div
-                data-testid="icon-shape-border"
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  left: 0,
-                  backgroundColor: shapeBorderColor || "transparent",
-                  ...SHAPE_CLIP_STYLES[shapeKey],
-                }}
-              />
-              <div
-                data-testid="icon-shape-fill"
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  left: 0,
-                  backgroundColor: shapeFillColor || "transparent",
-                  transform: `scale(${fillScale})`,
-                  transformOrigin: "center",
-                  ...SHAPE_CLIP_STYLES[shapeKey],
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: `${iconTopInsetPercent}%`,
-                  right: `${iconInsetPercent}%`,
-                  bottom: `${iconBottomInsetPercent}%`,
-                  left: `${iconInsetPercent}%`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
+                data-testid="icon-shape"
+                data-shape={shapeKey}
+                style={{ position: "relative", width: "100%", height: "100%" }}
               >
-                {iconElement}
+                <div
+                  data-testid="icon-shape-border"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    left: 0,
+                    backgroundColor: shapeBorderColor || "transparent",
+                    ...SHAPE_CLIP_STYLES[shapeKey],
+                  }}
+                />
+                <div
+                  data-testid="icon-shape-fill"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    left: 0,
+                    backgroundColor: shapeFillColor || "transparent",
+                    transform: `scale(${fillScale})`,
+                    transformOrigin: "center",
+                    ...SHAPE_CLIP_STYLES[shapeKey],
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: `${iconTopInsetPercent}%`,
+                    right: `${iconInsetPercent}%`,
+                    bottom: `${iconBottomInsetPercent}%`,
+                    left: `${iconInsetPercent}%`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {iconElement}
+                </div>
               </div>
-            </div>
-          ) : (
-            iconElement
-          )
-        ) : wasRequested ? (
-          <div data-testid="icon-unresolved-hint" style={hintTextStyle}>
-            <div>
-              No icon named <strong>&quot;{iconName}&quot;</strong>
-            </div>
-            <div>
-              {availableNames.length === 0
-                ? "No icons registered yet — see src/assets/icons/index.ts"
-                : (() => {
+            ) : (
+              iconElement
+            )
+          ) : wasRequested ? (
+            <div data-testid="icon-unresolved-hint" style={hintTextStyle}>
+              <div>
+                No icon named <strong>&quot;{iconName}&quot;</strong>
+              </div>
+              <div>
+                {availableNames.length === 0
+                  ? "No icons registered yet — see src/assets/icons/index.ts"
+                  : (() => {
                     const suggestions = findSimilarIconNames(iconName ?? "", availableNames);
                     return suggestions.length > 0
                       ? `Did you mean: ${suggestions.join(", ")}?`
                       : "No similar icon names found.";
                   })()}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div data-testid="icon-empty-hint" style={hintTextStyle}>
-            <div>Enter an icon name to display.</div>
-            <div>
-              {availableNames.length > 0
-                ? `Example: "${availableNames[0]}"`
-                : "No icons are registered yet — add PNGs to src/assets/icons/ first."}
+          ) : (
+            <div data-testid="icon-empty-hint" style={hintTextStyle}>
+              <div>Enter an icon name to display.</div>
+              <div>
+                {availableNames.length > 0
+                  ? `Example: "${availableNames[0]}"`
+                  : "No icons are registered yet — add PNGs to src/assets/icons/ first."}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

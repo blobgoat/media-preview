@@ -93,10 +93,10 @@ export default defineConfig({
     // iconClicked event below — any combination of the three can be on or off. Uses the same
     // hoverAnimationPaddingPercent reserved space, but shrinking never needs it (only growing —
     // the hover scale-up — risks spilling past the widget's edges).
-    pressAnimationEnabled: {
-      displayName: "Animate the widget on press (mouse down)",
-      type: "boolean",
-    },
+    // pressAnimationEnabled: {
+    //   displayName: "Animate the widget on press (mouse down)",
+    //   type: "boolean",
+    // },
   },
   events: {
     // Fires whenever the widget is clicked, regardless of what's currently displayed (icon,
