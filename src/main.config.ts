@@ -16,10 +16,12 @@ export default defineConfig({
   type: "workshop",
   parameters: {
     // --- Input parameters ---------------------------------------------------
-    // The key to look up in the repository's icon registry (src/assets/icons/index.ts). Exact
-    // match wins; otherwise falls back to a case-insensitive substring search.
+    // The key to look up in the repository's icon registry (src/assets/icons/index.ts). Must
+    // match a registered name exactly (case-sensitive) — no fuzzy resolution. Left blank, or
+    // set to something that doesn't match, the widget shows on-widget guidance instead of
+    // guessing.
     iconName: {
-      displayName: "Icon name",
+      displayName: "Icon name (must match exactly, e.g. a file in src/assets/icons/)",
       type: "string",
     },
     // CSS color to recolor the icon to (e.g. "#2563eb", "royalblue"). Leave blank to keep the
@@ -30,9 +32,11 @@ export default defineConfig({
       type: "string",
     },
     // One of "circle", "triangle", or "rectangle" (case-insensitive). Any other value (or
-    // blank) renders the icon with no surrounding shape.
+    // blank) renders the icon with no surrounding shape. Also clips the widget's own animated
+    // content box (background/shadow/hover-press) to this same shape, not just the border/fill
+    // backdrop — "rectangle" is a no-op clip, so it behaves the same as leaving this blank.
     shape: {
-      displayName: "Shape around icon: circle, triangle, or rectangle",
+      displayName: "Shape of icon area + click/hover box: circle, triangle, or rectangle",
       type: "string",
     },
     shapeFillColor: {
@@ -56,6 +60,52 @@ export default defineConfig({
       displayName: "Icon size, % of shape (only with a shape set; default 70)",
       type: "number",
     },
+
+    // --- Widget-level appearance ---------------------------------------------
+    // CSS color for the widget's own background, behind everything else (icon, shape, hints).
+    // Blank = transparent, same as today.
+    backgroundColor: {
+      displayName: "Widget background color (blank = transparent)",
+      type: "string",
+    },
+    // Adds a drop shadow around the whole widget.
+    shadowEnabled: {
+      displayName: "Add a drop shadow to the widget",
+      type: "boolean",
+    },
+    // Scales the widget up slightly on mouse hover. Purely a visual affordance; independent of
+    // the click event below (hover can be off while clicking still works, and vice versa).
+    hoverAnimationEnabled: {
+      displayName: "Animate the widget on hover",
+      type: "boolean",
+    },
+    // Percentage of the widget's own box reserved as empty padding so the hover scale-up has
+    // room to grow into without spilling outside the widget's allocated area. Only applies when
+    // hoverAnimationEnabled is on — otherwise the icon/shape/background fill the full widget,
+    // same as before. Defaults to 4 (comfortably covers the ~2%-per-side growth from the current
+    // hover scale factor) when hover animation is on but this isn't set.
+    hoverAnimationPaddingPercent: {
+      displayName: "Padding reserved for hover growth, % of widget size (default 4)",
+      type: "number",
+    },
+    // Scales the widget down slightly while the mouse button is held down on it, as tactile
+    // feedback that the click registered. Independent of hoverAnimationEnabled and the
+    // iconClicked event below — any combination of the three can be on or off. Uses the same
+    // hoverAnimationPaddingPercent reserved space, but shrinking never needs it (only growing —
+    // the hover scale-up — risks spilling past the widget's edges).
+    pressAnimationEnabled: {
+      displayName: "Animate the widget on press (mouse down)",
+      type: "boolean",
+    },
   },
-  events: {},
+  events: {
+    // Fires whenever the widget is clicked, regardless of what's currently displayed (icon,
+    // empty-state prompt, or unresolved-icon hint). Carries no parameter updates of its own —
+    // wire it to a Workshop action (run a function, set a variable, etc.) that doesn't need
+    // extra data from the click itself.
+    iconClicked: {
+      displayName: "Widget clicked",
+      parameterUpdateIds: [],
+    },
+  },
 });

@@ -32,7 +32,7 @@ describe("Widget with a zero-icon registry", () => {
     expect(hint).toHaveTextContent("No icons registered yet");
   });
 
-  it("renders no icon and no hint when iconName is unset, even with an empty registry", () => {
+  it("prompts for an icon name (with the no-icons-registered message) when iconName is unset and the registry is empty", () => {
     vi.mocked(useWidgetContext).mockReturnValue({
       parameters: { state: "loaded", values: { iconName: "" } },
       emitEvent: vi.fn(),
@@ -43,5 +43,9 @@ describe("Widget with a zero-icon registry", () => {
     expect(screen.getByTestId("icon-widget")).toBeInTheDocument();
     expect(screen.queryByTestId("icon-image")).not.toBeInTheDocument();
     expect(screen.queryByTestId("icon-unresolved-hint")).not.toBeInTheDocument();
+
+    const emptyHint = screen.getByTestId("icon-empty-hint");
+    expect(emptyHint).toHaveTextContent("Enter an icon name to display.");
+    expect(emptyHint).toHaveTextContent("No icons are registered yet");
   });
 });

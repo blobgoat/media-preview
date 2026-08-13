@@ -20,7 +20,7 @@ function mockLoadedParameters(values: Record<string, unknown>) {
 }
 
 describe("Widget with the real production icon registry", () => {
-  it("renders an actual registered PNG for a real icon name", () => {
+  it("renders an actual registered PNG for a real icon name (exact match)", () => {
     mockLoadedParameters({ iconName: "ambulence" });
 
     render(<Widget />);
@@ -39,7 +39,18 @@ describe("Widget with the real production icon registry", () => {
     expect(img.src).toContain("cherry");
   });
 
-  it("shows the unresolved-icon hint, listing real registered names, for an unknown name", () => {
+  it("does not resolve a real icon name that only differs by case", () => {
+    mockLoadedParameters({ iconName: "Ambulence" });
+
+    render(<Widget />);
+
+    expect(screen.queryByTestId("icon-image")).not.toBeInTheDocument();
+    expect(screen.getByTestId("icon-unresolved-hint")).toHaveTextContent(
+      'No icon named "Ambulence"',
+    );
+  });
+
+  it("shows the unresolved-icon hint for an unknown name with no resembling registered names", () => {
     mockLoadedParameters({ iconName: "does-not-exist" });
 
     render(<Widget />);
@@ -47,13 +58,23 @@ describe("Widget with the real production icon registry", () => {
     expect(screen.queryByTestId("icon-image")).not.toBeInTheDocument();
     const hint = screen.getByTestId("icon-unresolved-hint");
     expect(hint).toHaveTextContent('No icon named "does-not-exist"');
-    // Spot-check a couple of the real filenames rather than asserting exact list order, since
-    // that order comes from import.meta.glob and isn't part of this widget's contract.
-    expect(hint).toHaveTextContent("ambulence");
-    expect(hint).toHaveTextContent("cherry");
+    expect(hint).toHaveTextContent("No similar icon names found.");
   });
 
-  it("renders no icon and no hint when iconName is unset", () => {
+  it("suggests a real registered name that resembles a near-miss", () => {
+    // "ambulance" (correct spelling) doesn't exactly match the registered "ambulence" (the
+    // actual filename), but should still surface as a suggestion.
+    mockLoadedParameters({ iconName: "amb" });
+
+    render(<Widget />);
+
+    expect(screen.queryByTestId("icon-image")).not.toBeInTheDocument();
+    expect(screen.getByTestId("icon-unresolved-hint")).toHaveTextContent(
+      "Did you mean: ambulence?",
+    );
+  });
+
+  it("prompts for an icon name, with a real example, when iconName is unset", () => {
     mockLoadedParameters({ iconName: "" });
 
     render(<Widget />);
@@ -61,5 +82,11 @@ describe("Widget with the real production icon registry", () => {
     expect(screen.getByTestId("icon-widget")).toBeInTheDocument();
     expect(screen.queryByTestId("icon-image")).not.toBeInTheDocument();
     expect(screen.queryByTestId("icon-unresolved-hint")).not.toBeInTheDocument();
+
+    const emptyHint = screen.getByTestId("icon-empty-hint");
+    expect(emptyHint).toHaveTextContent("Enter an icon name to display.");
+    // Don't assert exactly which name is used as the example — import.meta.glob's key order
+    // isn't part of this widget's contract — just that a real, quoted example is shown.
+    expect(emptyHint.textContent).toMatch(/Example: ".+"/);
   });
 });
