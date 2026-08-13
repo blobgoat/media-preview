@@ -4,40 +4,59 @@ import { Widget } from "../Widget.js";
 import { useWidgetContext } from "../context.js";
 
 // Deliberately does NOT mock "../assets/icons/index.js" — this exercises the real production
-// registry (src/assets/icons/index.ts), which ships empty until real PNG assets are added later.
-// See prompt.txt's "Testing an Empty Production Registry" / "Real Empty Production Registry"
-// requirements: the widget must work correctly with zero registered icons, without requiring a
-// production PNG just to make a test pass.
+// registry (src/assets/icons/index.ts), which is auto-generated from the actual .png files in
+// src/assets/icons/. See prompt.txt's "Testing an Empty Production Registry" intent, adapted
+// now that real icon files exist in the repository: this file covers the real, current registry
+// state; Widget.emptyRegistry.test.tsx separately guards the zero-icons case with a mock.
 vi.mock("../context.js", () => ({
   useWidgetContext: vi.fn(),
 }));
 
-describe("Widget with the real (empty) production icon registry", () => {
-  it("renders without throwing and shows the unresolved-icon hint for any requested name", () => {
-    vi.mocked(useWidgetContext).mockReturnValue({
-      parameters: { state: "loaded", values: { iconName: "search" } },
-      emitEvent: vi.fn(),
-    } as unknown as ReturnType<typeof useWidgetContext>);
+function mockLoadedParameters(values: Record<string, unknown>) {
+  vi.mocked(useWidgetContext).mockReturnValue({
+    parameters: { state: "loaded", values },
+    emitEvent: vi.fn(),
+  } as unknown as ReturnType<typeof useWidgetContext>);
+}
 
-    expect(() => render(<Widget />)).not.toThrow();
+describe("Widget with the real production icon registry", () => {
+  it("renders an actual registered PNG for a real icon name", () => {
+    mockLoadedParameters({ iconName: "ambulence" });
 
-    expect(screen.getByTestId("icon-widget")).toBeInTheDocument();
-    expect(screen.queryByTestId("icon-image")).not.toBeInTheDocument();
+    render(<Widget />);
 
-    // With zero registered icons, the hint should say so rather than listing an empty
-    // "Available:" line.
-    const hint = screen.getByTestId("icon-unresolved-hint");
-    expect(hint).toHaveTextContent('No icon named "search"');
-    expect(hint).toHaveTextContent("No icons registered yet");
+    const img = screen.getByTestId("icon-image") as HTMLImageElement;
+    expect(img.src).toContain("ambulence");
+    expect(img.src).toMatch(/\.png($|\?)/);
   });
 
-  it("renders no icon and no hint when iconName is unset, even with an empty registry", () => {
-    vi.mocked(useWidgetContext).mockReturnValue({
-      parameters: { state: "loaded", values: { iconName: "" } },
-      emitEvent: vi.fn(),
-    } as unknown as ReturnType<typeof useWidgetContext>);
+  it("resolves a different real icon name to a different PNG", () => {
+    mockLoadedParameters({ iconName: "cherry" });
 
-    expect(() => render(<Widget />)).not.toThrow();
+    render(<Widget />);
+
+    const img = screen.getByTestId("icon-image") as HTMLImageElement;
+    expect(img.src).toContain("cherry");
+  });
+
+  it("shows the unresolved-icon hint, listing real registered names, for an unknown name", () => {
+    mockLoadedParameters({ iconName: "does-not-exist" });
+
+    render(<Widget />);
+
+    expect(screen.queryByTestId("icon-image")).not.toBeInTheDocument();
+    const hint = screen.getByTestId("icon-unresolved-hint");
+    expect(hint).toHaveTextContent('No icon named "does-not-exist"');
+    // Spot-check a couple of the real filenames rather than asserting exact list order, since
+    // that order comes from import.meta.glob and isn't part of this widget's contract.
+    expect(hint).toHaveTextContent("ambulence");
+    expect(hint).toHaveTextContent("cherry");
+  });
+
+  it("renders no icon and no hint when iconName is unset", () => {
+    mockLoadedParameters({ iconName: "" });
+
+    render(<Widget />);
 
     expect(screen.getByTestId("icon-widget")).toBeInTheDocument();
     expect(screen.queryByTestId("icon-image")).not.toBeInTheDocument();

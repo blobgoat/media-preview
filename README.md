@@ -8,7 +8,11 @@ automatically generates a `widgets.config.json` manifest during `npm run build`.
 
 ## Media Preview
 
-Displays a single icon, looked up by name from the repository-owned PNG icon registry in `src/assets/icons/index.ts`, centered in a flex container that fills the widget. Configure the `iconName` parameter in Workshop with the key of a registered icon. The registry ships empty — add `.png` files under `src/assets/icons/` and register them in `src/assets/icons/index.ts` to make them selectable; no widget code changes are needed when adding icons.
+Displays a single icon, looked up by name from the repository-owned PNG icon registry in `src/assets/icons/index.ts`, centered in a flex container that fills the widget. Configure the `iconName` parameter in Workshop with the key of a registered icon — if it doesn't match exactly, a case-insensitive substring search is tried before giving up.
+
+Optional parameters: `iconColor` recolors the icon (via a CSS mask; blank keeps the PNG's own colors). `shape` (`circle` / `triangle` / `rectangle`) draws a backdrop behind the icon, styled with `shapeFillColor` and `shapeBorderColor` + `shapeBorderThickness` (a percentage of the shape's size, not px — that's what keeps the border correctly inside the shape on any widget aspect ratio, including a triangle on a wide card). `iconSizePercent` controls how large the icon renders relative to the shape (default 70%).
+
+The registry is generated automatically from whatever `.png` files exist in `src/assets/icons/` (via Vite's `import.meta.glob`) — to add an icon, just drop the `.png` file in that folder. Its filename without the extension becomes the `iconName` that resolves to it (e.g. `src/assets/icons/search.png` → `iconName: "search"`). Nothing else needs editing. If `iconName` doesn't match any file present, the widget shows a small on-widget hint naming the currently available icons instead of staying silently blank.
 
 The widget's Workshop-facing contract (parameters, events) lives in `src/main.config.ts` via
 `defineConfig({...})`. Everything else is ordinary React — `src/Widget.tsx` is the root
