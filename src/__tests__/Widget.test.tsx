@@ -441,7 +441,7 @@ describe("shape around the icon", () => {
     expect(img.parentElement?.style.clipPath).toBe("");
   });
 
-  it("clips the content box to the shape even without hoverAnimationEnabled or pressAnimationEnabled (background/shadow still shaped)", () => {
+  it("clips the content box to the shape even without hoverAnimationEnabled (background/shadow still shaped)", () => {
     mockLoadedParameters({ iconName: "search", shape: "circle", backgroundColor: "#eeeeee" });
 
     render(<Widget />);
@@ -540,26 +540,30 @@ describe("widget drop shadow", () => {
   });
 });
 
-describe("drop shadow on a triangle (box-shadow doesn't render through clip-path, so this uses filter: drop-shadow instead)", () => {
+describe("drop shadow on a triangle (box-shadow doesn't render through clip-path, so this uses filter: drop-shadow on a separate unclipped wrapper instead)", () => {
   it("has no shadow-producing filter when shadowEnabled is unset", () => {
     mockLoadedParameters({ iconName: "search", shape: "triangle" });
 
     render(<Widget />);
 
-    expect(screen.getByTestId("icon-widget-content")).toHaveStyle({ filter: "none" });
+    expect(screen.getByTestId("icon-widget-shadow-wrapper")).toHaveStyle({ filter: "none" });
   });
 
-  it("uses filter: drop-shadow(...), not box-shadow, when shadowEnabled is true on a triangle", () => {
+  it("uses filter: drop-shadow(...), not box-shadow, when shadowEnabled is true on a triangle, applied on a wrapper ancestor rather than the clipped content box itself", () => {
     mockLoadedParameters({ iconName: "search", shape: "triangle", shadowEnabled: true });
 
     render(<Widget />);
 
     const content = screen.getByTestId("icon-widget-content");
+    const wrapper = screen.getByTestId("icon-widget-shadow-wrapper");
     // box-shadow would be silently clipped away by the triangle's clip-path, so it must be unset
     // here — the visible shadow has to come from `filter` instead.
     expect(content.style.boxShadow).toBe("");
-    expect(content.style.filter).toContain("drop-shadow(");
-    expect(content.style.filter).toContain("rgba(0, 0, 0, 0.15)");
+    // A filter on the SAME element as clip-path would also get clipped away (it's computed on
+    // the element's already-clipped output), so it must live on the wrapper, not here.
+    expect(content.style.filter).toBe("");
+    expect(wrapper.style.filter).toContain("drop-shadow(");
+    expect(wrapper.style.filter).toContain("rgba(0, 0, 0, 0.15)");
   });
 
   it("deepens the drop-shadow filter on hover, same as the box-shadow does for circle/rectangle", () => {
@@ -573,14 +577,14 @@ describe("drop shadow on a triangle (box-shadow doesn't render through clip-path
     render(<Widget />);
 
     const widget = screen.getByTestId("icon-widget");
-    const content = screen.getByTestId("icon-widget-content");
-    expect(content.style.filter).toContain("rgba(0, 0, 0, 0.15)");
+    const wrapper = screen.getByTestId("icon-widget-shadow-wrapper");
+    expect(wrapper.style.filter).toContain("rgba(0, 0, 0, 0.15)");
 
     fireEvent.mouseEnter(widget);
-    expect(content.style.filter).toContain("rgba(0, 0, 0, 0.22)");
+    expect(wrapper.style.filter).toContain("rgba(0, 0, 0, 0.22)");
 
     fireEvent.mouseLeave(widget);
-    expect(content.style.filter).toContain("rgba(0, 0, 0, 0.15)");
+    expect(wrapper.style.filter).toContain("rgba(0, 0, 0, 0.15)");
   });
 
   it("flattens the drop-shadow filter while pressed, same as the box-shadow does for circle/rectangle", () => {
@@ -589,19 +593,18 @@ describe("drop shadow on a triangle (box-shadow doesn't render through clip-path
       shape: "triangle",
       shadowEnabled: true,
       hoverAnimationEnabled: true,
-      pressAnimationEnabled: true,
     });
 
     render(<Widget />);
 
     const widget = screen.getByTestId("icon-widget");
-    const content = screen.getByTestId("icon-widget-content");
+    const wrapper = screen.getByTestId("icon-widget-shadow-wrapper");
 
     fireEvent.mouseEnter(widget);
-    expect(content.style.filter).toContain("rgba(0, 0, 0, 0.22)");
+    expect(wrapper.style.filter).toContain("rgba(0, 0, 0, 0.22)");
 
     fireEvent.mouseDown(widget);
-    expect(content.style.filter).toContain("rgba(0, 0, 0, 0.15)");
+    expect(wrapper.style.filter).toContain("rgba(0, 0, 0, 0.15)");
   });
 
   it("still uses box-shadow (not filter) for circle, since border-radius doesn't have the clip-path shadow problem", () => {
@@ -612,6 +615,22 @@ describe("drop shadow on a triangle (box-shadow doesn't render through clip-path
     const content = screen.getByTestId("icon-widget-content");
     expect(content.style.boxShadow).toContain("rgba(0, 0, 0, 0.15)");
     expect(content.style.filter).toBe("");
+  });
+
+  it("does not render the shadow wrapper at all for circle/rectangle/no-shape — only triangle needs it", () => {
+    mockLoadedParameters({ iconName: "search", shape: "circle", shadowEnabled: true });
+    const { unmount } = render(<Widget />);
+    expect(screen.queryByTestId("icon-widget-shadow-wrapper")).not.toBeInTheDocument();
+    unmount();
+
+    mockLoadedParameters({ iconName: "search", shape: "rectangle", shadowEnabled: true });
+    const rect = render(<Widget />);
+    expect(screen.queryByTestId("icon-widget-shadow-wrapper")).not.toBeInTheDocument();
+    rect.unmount();
+
+    mockLoadedParameters({ iconName: "search", shadowEnabled: true });
+    render(<Widget />);
+    expect(screen.queryByTestId("icon-widget-shadow-wrapper")).not.toBeInTheDocument();
   });
 });
 
@@ -750,8 +769,8 @@ describe("hover animation padding", () => {
   });
 });
 
-describe("press animation", () => {
-  it("does not scale on mouse down when pressAnimationEnabled is unset", () => {
+describe("press animation (shares the hoverAnimationEnabled toggle — there is no separate press parameter)", () => {
+  it("does not scale on mouse down when hoverAnimationEnabled is unset", () => {
     mockLoadedParameters({ iconName: "search" });
 
     render(<Widget />);
@@ -761,8 +780,8 @@ describe("press animation", () => {
     expect(screen.getByTestId("icon-widget-content")).toHaveStyle({ transform: "scale(1)" });
   });
 
-  it("does not scale on mouse down when pressAnimationEnabled is explicitly false", () => {
-    mockLoadedParameters({ iconName: "search", pressAnimationEnabled: false });
+  it("does not scale on mouse down when hoverAnimationEnabled is explicitly false", () => {
+    mockLoadedParameters({ iconName: "search", hoverAnimationEnabled: false });
 
     render(<Widget />);
 
@@ -771,8 +790,8 @@ describe("press animation", () => {
     expect(screen.getByTestId("icon-widget-content")).toHaveStyle({ transform: "scale(1)" });
   });
 
-  it("scales down on mouse down and back up on mouse up when pressAnimationEnabled is true", () => {
-    mockLoadedParameters({ iconName: "search", pressAnimationEnabled: true });
+  it("scales down on mouse down and back up on mouse up when hoverAnimationEnabled is true, even without a preceding mouse enter", () => {
+    mockLoadedParameters({ iconName: "search", hoverAnimationEnabled: true });
 
     render(<Widget />);
 
@@ -788,7 +807,7 @@ describe("press animation", () => {
   });
 
   it("reverts the press if the mouse leaves the widget before mouse up (e.g. pressed then dragged away)", () => {
-    mockLoadedParameters({ iconName: "search", pressAnimationEnabled: true });
+    mockLoadedParameters({ iconName: "search", hoverAnimationEnabled: true });
 
     render(<Widget />);
 
@@ -802,12 +821,8 @@ describe("press animation", () => {
     expect(content).toHaveStyle({ transform: "scale(1)" });
   });
 
-  it("shows the press scale, not the hover scale, when both are enabled and the widget is pressed while hovered", () => {
-    mockLoadedParameters({
-      iconName: "search",
-      hoverAnimationEnabled: true,
-      pressAnimationEnabled: true,
-    });
+  it("shows the press scale, not the hover scale, when the widget is pressed while hovered", () => {
+    mockLoadedParameters({ iconName: "search", hoverAnimationEnabled: true });
 
     render(<Widget />);
 
@@ -830,7 +845,6 @@ describe("press animation", () => {
       iconName: "search",
       shadowEnabled: true,
       hoverAnimationEnabled: true,
-      pressAnimationEnabled: true,
     });
 
     render(<Widget />);
@@ -846,7 +860,7 @@ describe("press animation", () => {
   });
 
   it("applies the press animation regardless of what's currently shown (empty-hint state)", () => {
-    mockLoadedParameters({ iconName: "", pressAnimationEnabled: true });
+    mockLoadedParameters({ iconName: "", hoverAnimationEnabled: true });
 
     render(<Widget />);
 

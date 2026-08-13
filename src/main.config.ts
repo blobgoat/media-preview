@@ -73,30 +73,24 @@ export default defineConfig({
       displayName: "Add a drop shadow to the widget",
       type: "boolean",
     },
-    // Scales the widget up slightly on mouse hover. Purely a visual affordance; independent of
-    // the click event below (hover can be off while clicking still works, and vice versa).
+    // Scales the widget up slightly on mouse hover, and down slightly while the mouse button is
+    // held down on it (tactile press feedback) — one toggle controls both; there's no separate
+    // parameter for the press animation. Purely a visual affordance; independent of the click
+    // event below (hover/press can be off while clicking still works, and vice versa).
     hoverAnimationEnabled: {
-      displayName: "Animate the widget on hover",
+      displayName: "Animate the widget on hover and press (mouse down)",
       type: "boolean",
     },
     // Percentage of the widget's own box reserved as empty padding so the hover scale-up has
     // room to grow into without spilling outside the widget's allocated area. Only applies when
     // hoverAnimationEnabled is on — otherwise the icon/shape/background fill the full widget,
     // same as before. Defaults to 4 (comfortably covers the ~2%-per-side growth from the current
-    // hover scale factor) when hover animation is on but this isn't set.
+    // hover scale factor) when hover animation is on but this isn't set. The press animation
+    // (shrinking) never needs this padding — only growing risks spilling past the widget's edges.
     hoverAnimationPaddingPercent: {
       displayName: "Padding reserved for hover growth, % of widget size (default 4)",
       type: "number",
     },
-    // Scales the widget down slightly while the mouse button is held down on it, as tactile
-    // feedback that the click registered. Independent of hoverAnimationEnabled and the
-    // iconClicked event below — any combination of the three can be on or off. Uses the same
-    // hoverAnimationPaddingPercent reserved space, but shrinking never needs it (only growing —
-    // the hover scale-up — risks spilling past the widget's edges).
-    // pressAnimationEnabled: {
-    //   displayName: "Animate the widget on press (mouse down)",
-    //   type: "boolean",
-    // },
   },
   events: {
     // Fires whenever the widget is clicked, regardless of what's currently displayed (icon,

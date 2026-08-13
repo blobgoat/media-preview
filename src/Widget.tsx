@@ -43,9 +43,6 @@ export const Widget: React.FC = () => {
   const hoverAnimationPaddingPercent = loaded
     ? readNumber(parameters.values.hoverAnimationPaddingPercent)
     : undefined;
-  const pressAnimationEnabled = loaded
-    ? readBoolean(parameters.values.pressAnimationEnabled)
-    : false;
 
   // Fires regardless of what's currently displayed (icon, empty-state prompt, or unresolved
   // hint) — see the `iconClicked` event's doc comment in main.config.ts.
@@ -67,7 +64,6 @@ export const Widget: React.FC = () => {
         shadowEnabled={shadowEnabled}
         hoverAnimationEnabled={hoverAnimationEnabled}
         hoverAnimationPaddingPercent={hoverAnimationPaddingPercent}
-        pressAnimationEnabled={pressAnimationEnabled}
         onWidgetClick={handleWidgetClick}
       />
     </Theme>
